@@ -1,5 +1,7 @@
 /*----------------------------------------------------------------*/
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -14,6 +16,8 @@
 #include <errno.h>
 #include <string.h>
 #include <netdb.h>
+#include <sys/select.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <signal.h>
 /*----------------------------------------------------------------*/
@@ -21,7 +25,7 @@
 #define SERVER_PORT 5100
 #define DOMAIN_NAME_SIZE 256
 #define MESSAGE_SIZE 200
-#define MAX_CLIENTS 256
+//#define MAX_CLIENTS 8
 
 using namespace std;
 
@@ -46,19 +50,21 @@ int main (int argc, char *argv[])
      * so that others (stations/routers) can connect to it
      */
     
-    int servfd, servport, result, maxfd;
+    ofstream port_file, addr_file;
+    int servfd, result, maxfd, num_ports = atoi(argv[2]);
     struct sockaddr_in serverAddr, newaddr;
     socklen_t length;
     fd_set readset;
-    client_t clients[MAX_CLIENTS];
+    client_t clients[num_ports];
     char domainName[DOMAIN_NAME_SIZE], message[MESSAGE_SIZE];
+    string port_fname, addr_fname;
     struct hostent *host;
 
     // This is used so that ctrl+C can be properly handled
     signal(SIGINT, intHandler);
 
     // Initialize the message buffer and client arrays to 0
-    memset (clients, 0, MAX_CLIENTS*sizeof(client_t));
+    memset (clients, 0, num_ports*sizeof(client_t));
     memset (message, 0, MESSAGE_SIZE*sizeof(char));
 
     // Open a new socket
@@ -67,12 +73,7 @@ int main (int argc, char *argv[])
     // Variable to keep track of the largest file descriptor
     maxfd = servfd + 1;
 
-    // Assign the port from the command line argument if provided
-    if (argc == 2)
-        servport = htons(atoi(argv[1]));
-    else
-        servport = 0;
-    serverAddr.sin_port = servport;
+    serverAddr.sin_port = 0;
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_family = AF_INET;
 
@@ -86,9 +87,20 @@ int main (int argc, char *argv[])
     clients[servfd].port = ntohs(serverAddr.sin_port);
 
     // Get the server host name
+    // Not needed?
     gethostname(domainName, DOMAIN_NAME_SIZE);
     host = gethostbyname(domainName);
     strcpy(clients[servfd].name, host->h_name);
+
+    // create the LAN files for the port and IP address
+    port_fname = string(".") + argv[1] + ".port";
+    addr_fname = string(".") + argv[1] + ".addr";
+    port_file.open(port_fname.c_str());
+    addr_file.open(addr_fname.c_str());
+    port_file << clients[servfd].port << endl;
+    addr_file << inet_ntoa((*(struct in_addr *) host->h_addr)) << endl; 
+    port_file.close();
+    addr_file.close();
 
     cout << "admin: started server on '" << host->h_name << "' at '" 
          << clients[servfd].port << "'\n"
@@ -109,7 +121,7 @@ int main (int argc, char *argv[])
 
         // Set the read status for the server and active client sockets
         FD_SET(servfd, &readset);
-        for(int i = 0; i < MAX_CLIENTS; i++)
+        for(int i = 0; i < num_ports; i++)
             if (clients[i].port != 0)
                 FD_SET(i, &readset);
 
@@ -136,7 +148,7 @@ int main (int argc, char *argv[])
             // If activity from one of the clients, retrieve its message
             else
             {
-                for(int i = 0; i < MAX_CLIENTS; ++i)
+                for(int i = 0; i < num_ports; ++i)
                 {
                     if(FD_ISSET(i, &readset))
                     {
@@ -158,7 +170,7 @@ int main (int argc, char *argv[])
                         {
                             cout << clients[i].name << "(" 
                                  << clients[i].port << "): " << message;
-                            for(int j = 0; j < MAX_CLIENTS; ++j)
+                            for(int j = 0; j < num_ports; ++j)
                             {
                                 if(clients[j].port != 0 && j != i && j != servfd)
                                     send(j, message, strlen(message), 0);
