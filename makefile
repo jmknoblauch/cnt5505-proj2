@@ -12,7 +12,7 @@ station: station.o ether.h ip.h
 	$(CC) $(GFLAGS) station.o ether.h ip.h -o station
 
 clean : 
-	rm -f bridge station *.o
+	rm -f bridge station *.o .*.addr .*.port
 
 %.o : %.c $(INCLUDES)
 	$(CC) $(CFLAGS) $<
