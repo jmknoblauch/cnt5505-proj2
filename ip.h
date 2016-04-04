@@ -11,16 +11,19 @@
 #define PROT_TYPE_TCP 1
 #define PROT_TYPE_OSPF 2
 
+#define BUFSIZE 256
+
 typedef unsigned long IPAddr;
 
 /* Structure to represent an interface */
 
-typedef struct iface {
+struct Iface {
    char ifacename[32];
    IPAddr ipaddr;
+   IPAddr netmask;
    MacAddr macaddr;
    char lanname[32];
-} Iface;
+};
 
 /* mapping between interface name and socket id representing link */
 typedef struct itface2link {
@@ -79,7 +82,7 @@ typedef struct ip_pkt
   short   protocol;
   unsigned long    sequenceno;
   short   length;
-  char    data[BUFSIZ];
+  char    data[BUFSIZE];
 } IP_PKT;
 
 /*queue for ip packet that has not yet sent out*/
@@ -120,10 +123,10 @@ typedef struct lan_rout {
 } LAN_ROUT;
 
 /* some global variables here */
-Host host[MAXHOSTS];
+//Host host[MAXHOSTS];
 int hostcnt;
 
-Iface iface_list[MAXINTER];
+//Iface iface_list[MAXINTER];
 /* if there is router on this lan, 1; else 0 */
 LAN_ROUT lan_router[MAXINTER];
 ITF2LINK link_socket[MAXINTER];
