@@ -137,7 +137,7 @@ int main (int argc, char *argv[])
 
                 // Get the client's port and host name
                 clients[newfd].port = ntohs(newaddr.sin_port);
-                host = gethostbyaddr((const void*)&newaddr.sin_addr, 4, AF_INET);
+                host = gethostbyaddr((const void*)&newaddr.sin_addr,4,AF_INET);
                 strcpy(clients[newfd].name, host->h_name);
 
                 if (newfd >= maxfd)
@@ -160,7 +160,7 @@ int main (int argc, char *argv[])
                                 maxfd = maxfd - 1;
 
                             cout << "admin: disconnect from '" 
-                                 << clients[i].name << "(" 
+                                 << clients[i].name << "("                      
                                  << clients[i].port << ")'\n";
                             // Zero port is used to show socket is inactive
                             clients[i].port = 0;
@@ -172,7 +172,7 @@ int main (int argc, char *argv[])
                                  << clients[i].port << "): " << message;
                             for(int j = 0; j < num_ports; ++j)
                             {
-                                if(clients[j].port != 0 && j != i && j != servfd)
+                                if(clients[j].port != 0 && j!=i &&  j!=servfd)
                                     send(j, message, strlen(message), 0);
                             }
                         }
