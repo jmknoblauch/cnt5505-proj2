@@ -20,12 +20,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include "ip.h"
 /*----------------------------------------------------------------*/
 
 #define SERVER_PORT 5100
 #define DOMAIN_NAME_SIZE 256
 #define MESSAGE_SIZE 200
-//#define MAX_CLIENTS 8
 
 using namespace std;
 
@@ -59,6 +59,13 @@ int main (int argc, char *argv[])
     char domainName[DOMAIN_NAME_SIZE], message[MESSAGE_SIZE];
     string port_fname, addr_fname;
     struct hostent *host;
+    EtherPkt packet;
+
+    if (argc != 3)
+    {
+        cout << "Usage: bridge <lan-nam> <num-ports>\n";
+        exit(0);
+    }
 
     // This is used so that ctrl+C can be properly handled
     signal(SIGINT, intHandler);
@@ -152,9 +159,9 @@ int main (int argc, char *argv[])
                 {
                     if(FD_ISSET(i, &readset))
                     {
-                        result = recv(i, message, MESSAGE_SIZE, 0);
-                        // In case of a disconnection
-                        if(result == 0){
+                        // Get packet and check for disconnection
+                        if(recv(i, &packet, EtherPktSize, 0) == 0) 
+                        {
                             close(i);
                             if(i == (maxfd - 1))
                                 maxfd = maxfd - 1;
@@ -173,11 +180,11 @@ int main (int argc, char *argv[])
                             for(int j = 0; j < num_ports; ++j)
                             {
                                 if(clients[j].port != 0 && j!=i &&  j!=servfd)
-                                    send(j, message, strlen(message), 0);
+                                    send(j, &packet, EtherPktSize, 0);
                             }
                         }
                         // Clear the message buffer afterward
-                        memset(message, 0, MESSAGE_SIZE);
+                        memset(&packet, 0, EtherPktSize);
 
                     }
                 }

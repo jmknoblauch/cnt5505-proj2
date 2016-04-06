@@ -43,11 +43,12 @@ int main(int argc, char** argv)
     Iface temp_i; 
     Rtable temp_r;
     Host temp_h;
+    EtherPkt packet;
 
     // Verify the correct number of arguments was provided
     if(argc != 5)
     {
-        cout << "Usage: chatclient <interface> <routingtable> <hostname>\n";
+        cout << "Usage: chatclient <flags> <interface> <routingtable> <hostname>\n";
         return 1;
     }
 
@@ -84,6 +85,7 @@ int main(int argc, char** argv)
 
     // Clear the message buffer
     memset(message, 0, MESSAGE_SIZE*sizeof(char));
+    memset(&packet, 0, sizeof(EtherPkt));
 
     // Set up the client socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -131,22 +133,22 @@ int main(int argc, char** argv)
             if(FD_ISSET(sockfd, &readset))
             {
                 // Orderly shutdown
-                if(recv(sockfd, message, MESSAGE_SIZE, 0) == 0)
+                if(recv(sockfd, &packet, EtherPktSize, 0) == 0)
                 {
                     cout << "Disconnected from server.\n";
                     shutdown(sockfd, 2);
                     return 0;
                 }
                 cout << ">>> " << message;
-                memset(message, 0, MESSAGE_SIZE);
+                memset(message, 0, EtherPktSize);
             }
 
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
             {
-                fgets(message, MESSAGE_SIZE, stdin);
-                send(sockfd, message, strlen(message), 0);
-                memset(message, 0, MESSAGE_SIZE);
+                fgets(packet.dat, packet.size, stdin);
+                send(sockfd, &packet, EtherPktSize, 0);
+                memset(&packet, 0, EtherPktSize);
             }
         }
     }
