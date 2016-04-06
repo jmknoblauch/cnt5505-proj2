@@ -1,6 +1,8 @@
 #ifndef ETHER_H
 #define ETHER_H
 
+#include <climits>
+
 #define PEER_CLOSED 2
 #define TYPE_IP_PKT 1
 #define TYPE_ARP_PKT 0
@@ -31,4 +33,5 @@ typedef struct __etherpkt
 
 } EtherPkt;
 
+const unsigned int EtherPktSize = sizeof(EtherPkt) + SHRT_MAX*sizeof(char);
 #endif
