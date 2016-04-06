@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     Rtable temp_r;
     Host temp_h;
     EtherPkt packet;
-    string input;
+    char input [SHRT_MAX*sizeof(char)];
 
     // Verify the correct number of arguments was provided
     if(argc != 5)
@@ -52,8 +52,6 @@ int main(int argc, char** argv)
         cout << "Usage: chatclient <flags> <interface> <routingtable> <hostname>\n";
         return 1;
     }
-
-    packet.dat = new char[SHRT_MAX*sizeof(char)];
 
     iface_file.open(argv[2]);
     rout_file.open(argv[3]);
@@ -149,14 +147,10 @@ int main(int argc, char** argv)
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
             {
-                cin >> input;
-                cout << "input = " << input << "\n";
-                strncpy(packet.dat, input.c_str(), SHRT_MAX*sizeof(char));
-                cout << "asdf\n";
-                packet.size = input.length();
-                cout << "Sending packet\n";
+                cin.getline(input, SHRT_MAX);
+                packet.dat = input;
+                packet.size = strlen(packet.dat);
                 send(sockfd, &packet, EtherPktSize, 0);
-                cout << "Blah\n";
                 memset(&packet, 0, EtherPktSize);
             }
         }
