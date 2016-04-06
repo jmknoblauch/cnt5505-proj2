@@ -146,7 +146,8 @@ int main(int argc, char** argv)
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
             {
-                fgets(packet.dat, packet.size, stdin);
+                fgets(packet.dat, SHRT_MAX*sizeof(char), stdin);
+                packet.size = strlen(packet.dat);
                 send(sockfd, &packet, EtherPktSize, 0);
                 memset(&packet, 0, EtherPktSize);
             }

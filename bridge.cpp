@@ -140,17 +140,17 @@ int main (int argc, char *argv[])
             {
                 int newfd;
                 length = sizeof(newaddr);
+                cout << "Here?\n";
                 newfd = accept(servfd, (struct sockaddr *) &newaddr, &length);
 
                 // Get the client's port and host name
                 clients[newfd].port = ntohs(newaddr.sin_port);
                 host = gethostbyaddr((const void*)&newaddr.sin_addr,4,AF_INET);
-                strcpy(clients[newfd].name, host->h_name);
-
+                //strcpy(clients[newfd].name, host->h_name);
+                cout << "Here2\n";
                 if (newfd >= maxfd)
                     maxfd = newfd + 1;
-                cout << "admin: connect from '" << clients[newfd].name
-                     << "' at '" << clients[newfd].port << "'\n";
+                cout << "admin: connect from '" << clients[newfd].port << "'\n";
             }
             // If activity from one of the clients, retrieve its message
             else
@@ -180,8 +180,7 @@ int main (int argc, char *argv[])
                             for(int j = 0; j < num_ports; ++j)
                             {
                                 if(clients[j].port != 0 && j!=i &&  j!=servfd)
-                                    send(j, &packet, EtherPktSize, 0);
-                            }
+                                    send(j, &packet, EtherPktSize, 0);                                      }
                         }
                         // Clear the message buffer afterward
                         memset(&packet, 0, EtherPktSize);
