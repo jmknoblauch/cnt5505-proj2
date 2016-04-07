@@ -29,9 +29,10 @@ typedef struct __etherpkt
   short   size;
 
   /* actual payload */
-  char *  dat;
+  char  dat[SHRT_MAX];
 
 } EtherPkt;
 
 const unsigned int EtherPktSize = sizeof(EtherPkt) + SHRT_MAX*sizeof(char);
+
 #endif
