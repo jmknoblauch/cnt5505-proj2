@@ -60,6 +60,7 @@ int main (int argc, char *argv[])
     string port_fname, addr_fname;
     struct hostent *host;
     EtherPkt packet;
+    char buffer[SHRT_MAX];
 
     if (argc != 3)
     {
@@ -142,17 +143,25 @@ int main (int argc, char *argv[])
                 length = sizeof(newaddr);
                 newfd = accept(servfd, (struct sockaddr *) &newaddr, &length);
 
-                // Get the client's port and host name
-                clients[newfd].port = ntohs(newaddr.sin_port);
-                host = gethostbyaddr((const void*)&newaddr.sin_addr,4,AF_INET);
-                //strcpy(clients[newfd].name, host->h_name);
-                if (newfd >= maxfd)
-                    maxfd = newfd + 1;
-                cout << "admin: connect from '" << clients[newfd].port << "'\n";
-                //char blah[300] = "asdf\n";
-                //packet.dat = blah;
-                //packet.size = 6;
-                //send (newfd, &packet, EtherPktSize, 0);
+                if (newfd < num_ports)
+                {
+                    send(newfd, "accept", 7, 0);
+
+                    // Get the client's port and host name
+                    clients[newfd].port = ntohs(newaddr.sin_port);
+                    host = gethostbyaddr((const void*)&newaddr.sin_addr,4,AF_INET);
+                    //strcpy(clients[newfd].name, host->h_name);
+                    if (newfd >= maxfd)
+                        maxfd = newfd + 1;
+                    cout << "admin: connect from '" << clients[newfd].port << "'\n";
+                }
+                else
+                {
+                    send(newfd, "reject", 7, 0);
+                    close(newfd);
+                }
+                    
+
             }
             // If activity from one of the clients, retrieve its message
             else
@@ -162,7 +171,8 @@ int main (int argc, char *argv[])
                     if(FD_ISSET(i, &readset))
                     {
                         // Get packet and check for disconnection
-                        if(recv(i, &packet, EtherPktSize, 0) == 0) 
+                        if(recv(i, &packet, sizeof(EtherPkt)-1, 0) == 0) 
+                        //if(recv(i, &packet, EtherPktSize, 0) == 0) 
                         {
                             close(i);
                             if(i == (maxfd - 1))
@@ -175,20 +185,23 @@ int main (int argc, char *argv[])
                             clients[i].port = 0;
                         }
                         // If message recieved, echo to all other clients
-                        else
+                        else if (packet.size)
                         {
-                            cout << "asdf\n";
-                            cout << "(" << clients[i].port << "): " << packet.size;
+                            cout << "(" << clients[i].port << "): "<<packet.dat << " size " << packet.size << endl;
+                            cout << "packet.dst = " << packet.dst << "\n";
                             for(int j = 0; j < num_ports; ++j)
                             {
-                                if(clients[j].port != 0 && j!=i &&  j!=servfd)
-                                    send(j, &packet, EtherPktSize, 0);
+                                if(clients[j].port != 0 && j != i &&  j != servfd)
+                                {
+                                    send(j, &packet, sizeof(EtherPkt), 0);
+                                    //send(j, buffer, packet.size, 0);
+                                    //send(j, &packet, EtherPktSize, 0);
+                                }
                             }
                         }
-                    cout << "Segfault?\n";
+
                         // Clear the message buffer afterward
                         memset(&packet, 0, sizeof(EtherPkt));
-                        cout << "segfault.\n";
 
                     }
                 }

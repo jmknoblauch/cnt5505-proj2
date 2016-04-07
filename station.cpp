@@ -45,6 +45,7 @@ int main(int argc, char** argv)
     Host temp_h;
     EtherPkt packet;
     char input [SHRT_MAX*sizeof(char)];
+    char buffer[SHRT_MAX];
 
     // Verify the correct number of arguments was provided
     if(argc != 5)
@@ -84,10 +85,6 @@ int main(int argc, char** argv)
     rout_file.close();
     host_file.close();
 
-    // Clear the message buffer
-    memset(message, 0, MESSAGE_SIZE*sizeof(char));
-    memset(&packet, 0, sizeof(EtherPkt));
-
     // Set up the client socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -112,6 +109,13 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    recv(sockfd, message, 7, 0);
+
+    cout << message << endl;
+
+    if (message[0] == 'r')
+        exit(0);
+
     // Get the port number of the server
     socklen_t maLen = sizeof(ma);
     getsockname(sockfd, (struct sockaddr *) &ma, &maLen);
@@ -120,6 +124,10 @@ int main(int argc, char** argv)
 
     cout << "admin: connected to server on '" << argv[1] << "' at '"
          << argv[2] << "' thru '" << ntohs(ma.sin_port) << "'\n";
+
+    // Clear the message buffer
+    memset(message, 0, MESSAGE_SIZE*sizeof(char));
+    memset(&packet, 0, sizeof(EtherPkt));
 
     while(true){
         FD_ZERO(&readset);
@@ -134,28 +142,37 @@ int main(int argc, char** argv)
             if(FD_ISSET(sockfd, &readset))
             {
                 // Orderly shutdown
-                if(recv(sockfd, &packet, EtherPktSize, 0) == 0)
+                if(recv(sockfd, &packet, sizeof(EtherPkt), 0) == 0)
                 {
                     cout << "Disconnected from server.\n";
-                    shutdown(sockfd, 2);
+                    //shutdown(sockfd, 2);
                     return 0;
                 }
-                cout << "Message of size " << packet.size << " received\n";
-                cout << ">>> " << packet.dat;
-                memset(&packet, 0, EtherPktSize);
+                if (packet.size)
+                {
+                    cout << "Message of size " << packet.size << " received\n";
+                    cout << ">>> " << packet.dat << endl;
+                }
+
             }
 
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
             {
-                cin.getline(input, SHRT_MAX);
-                packet.dat = input;
+                cin.getline(packet.dat, SHRT_MAX);
+                //packet.dat = buffer;
                 packet.size = strlen(packet.dat);
+                MacAddr tempAddr = {'1','2','3','4','5','6'};
+                for (int i = 0; i < 6; i++)
+                    packet.dst[i] = packet.src[i] = '0' + i;
                 cout << "Packet dat = " << packet.dat << endl;
-                send (sockfd, "asdfd;sak", 100, 0);
-                send(sockfd, &packet, EtherPktSize, 0);
-                memset(&packet, 0, EtherPktSize);
+                
+                send(sockfd, &packet, sizeof(EtherPkt), 0);
+                //send(sockfd, buffer, packet.size, 0);
+                //send (sockfd, &packet, EtherPktSize, 0);
             }
+
+            memset(&packet, 0, sizeof(EtherPkt));
         }
     }
 
