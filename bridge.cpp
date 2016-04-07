@@ -51,7 +51,7 @@ int main (int argc, char *argv[])
      */
     
     ofstream port_file, addr_file;
-    int servfd, result, maxfd, num_ports = atoi(argv[2]);
+    int servfd, result, maxfd, num_ports = atoi(argv[2]) + 4;
     struct sockaddr_in serverAddr, newaddr;
     socklen_t length;
     fd_set readset;
@@ -140,17 +140,19 @@ int main (int argc, char *argv[])
             {
                 int newfd;
                 length = sizeof(newaddr);
-                cout << "Here?\n";
                 newfd = accept(servfd, (struct sockaddr *) &newaddr, &length);
 
                 // Get the client's port and host name
                 clients[newfd].port = ntohs(newaddr.sin_port);
                 host = gethostbyaddr((const void*)&newaddr.sin_addr,4,AF_INET);
                 //strcpy(clients[newfd].name, host->h_name);
-                cout << "Here2\n";
                 if (newfd >= maxfd)
                     maxfd = newfd + 1;
                 cout << "admin: connect from '" << clients[newfd].port << "'\n";
+                //char blah[300] = "asdf\n";
+                //packet.dat = blah;
+                //packet.size = 6;
+                //send (newfd, &packet, EtherPktSize, 0);
             }
             // If activity from one of the clients, retrieve its message
             else
@@ -175,15 +177,18 @@ int main (int argc, char *argv[])
                         // If message recieved, echo to all other clients
                         else
                         {
-                            cout << clients[i].name << "(" 
-                                 << clients[i].port << "): " << message;
+                            cout << "asdf\n";
+                            cout << "(" << clients[i].port << "): " << packet.size;
                             for(int j = 0; j < num_ports; ++j)
                             {
                                 if(clients[j].port != 0 && j!=i &&  j!=servfd)
-                                    send(j, &packet, EtherPktSize, 0);                                      }
+                                    send(j, &packet, EtherPktSize, 0);
+                            }
                         }
+                    cout << "Segfault?\n";
                         // Clear the message buffer afterward
-                        memset(&packet, 0, EtherPktSize);
+                        memset(&packet, 0, sizeof(EtherPkt));
+                        cout << "segfault.\n";
 
                     }
                 }

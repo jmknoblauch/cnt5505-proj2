@@ -140,8 +140,9 @@ int main(int argc, char** argv)
                     shutdown(sockfd, 2);
                     return 0;
                 }
-                cout << ">>> " << message;
-                memset(message, 0, EtherPktSize);
+                cout << "Message of size " << packet.size << " received\n";
+                cout << ">>> " << packet.dat;
+                memset(&packet, 0, EtherPktSize);
             }
 
             // Check for input from stdin
@@ -150,6 +151,8 @@ int main(int argc, char** argv)
                 cin.getline(input, SHRT_MAX);
                 packet.dat = input;
                 packet.size = strlen(packet.dat);
+                cout << "Packet dat = " << packet.dat << endl;
+                send (sockfd, "asdfd;sak", 100, 0);
                 send(sockfd, &packet, EtherPktSize, 0);
                 memset(&packet, 0, EtherPktSize);
             }
