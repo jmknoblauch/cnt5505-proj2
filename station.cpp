@@ -22,6 +22,8 @@
 
 using namespace std;
 
+void stoMac(MacAddr mac, const char* str);
+void Mactos(MacAddr mac, const char* str);
 unsigned long stoIP (const char * a);
 string IPtos (unsigned long IP);
 
@@ -36,7 +38,7 @@ int main(int argc, char** argv)
     ifstream iface_file, rout_file, host_file, port_file, addr_file;
     string port_fname, addr_fname;
     char lan_port[10], lan_addr[20], 
-         temp_ipaddr1[20], temp_ipaddr2[20], temp_ipaddr3[20];
+         temp_ipaddr1[20], temp_ipaddr2[20], temp_ipaddr3[20], temp_macaddr[20];
     vector<Iface> ifaces; 
     vector<Rtable> rtables;
     vector<Host> hosts;
@@ -162,9 +164,9 @@ int main(int argc, char** argv)
                 cin.getline(packet.dat, SHRT_MAX);
                 //packet.dat = buffer;
                 packet.size = strlen(packet.dat);
-                MacAddr tempAddr = {'1','2','3','4','5','6'};
-                for (int i = 0; i < 6; i++)
-                    packet.dst[i] = packet.src[i] = '0' + i;
+                //MacAddr tempAddr = {'1','2','3','4','5','6'};
+                //for (int i = 0; i < 6; i++)
+                //    packet.dst[i] = packet.src[i] = '0' + i;
                 cout << "Packet dat = " << packet.dat << endl;
                 
                 send(sockfd, &packet, sizeof(EtherPkt), 0);
@@ -178,7 +180,6 @@ int main(int argc, char** argv)
 
     return 0;
 }
-
 
 IPAddr stoIP (const char * a)
 {

@@ -61,6 +61,7 @@ int main (int argc, char *argv[])
     struct hostent *host;
     EtherPkt packet;
     char buffer[SHRT_MAX];
+    map<
 
     if (argc != 3)
     {
@@ -189,6 +190,9 @@ int main (int argc, char *argv[])
                         {
                             cout << "(" << clients[i].port << "): "<<packet.dat << " size " << packet.size << endl;
                             cout << "packet.dst = " << packet.dst << "\n";
+                            
+
+
                             for(int j = 0; j < num_ports; ++j)
                             {
                                 if(clients[j].port != 0 && j != i &&  j != servfd)
