@@ -26,10 +26,10 @@ typedef struct __etherpkt
   short  type;
   
   /* size of the data in host order */
-  short   size;
+  //short   size;
 
   /* actual payload */
-  char  dat[SHRT_MAX];
+  //char  dat[SHRT_MAX];
 
 } EtherPkt;
 

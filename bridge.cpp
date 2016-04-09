@@ -76,7 +76,9 @@ int main (int argc, char *argv[])
     char domainName[DOMAIN_NAME_SIZE], message[MESSAGE_SIZE];
     string port_fname, addr_fname;
     struct hostent *host;
-    EtherPkt packet;
+    EtherPkt ether_pkt;
+    IP_PKT IP_pkt;
+    ARP_PKT ARP_pkt;
     char buffer[SHRT_MAX];
     vector<bridge_table_entry> bridge_table;
 
@@ -131,7 +133,7 @@ int main (int argc, char *argv[])
     /* listen to the socket.
      * two cases:
      * 1. connection open/close request from stations/routers
-     * 2. regular data packets
+     * 2. regular data ether_pkts
      */
 
     while(noInterupt)
@@ -176,13 +178,13 @@ int main (int argc, char *argv[])
             // If activity from one of the clients, retrieve its message
             else
             {
-                for(int i = 0; i < num_ports; ++i)
+                for(int i = 3; i < num_ports; ++i)
                 {
                     if(FD_ISSET(i, &readset))
                     {
-                        // Get packet and check for disconnection
-                        if(recv(i, &packet, sizeof(EtherPkt)-1, 0) == 0) 
-                        //if(recv(i, &packet, EtherPktSize, 0) == 0) 
+                        // Get ether_pkt and check for disconnection
+                        if(recv(i, &ether_pkt, sizeof(EtherPkt), 0) == 0) 
+                        //if(recv(i, &ether_pkt, EtherPktSize, 0) == 0) 
                         {
                             close(i);
                             if(i == (maxfd - 1))
@@ -195,17 +197,22 @@ int main (int argc, char *argv[])
                             clients[i].port = 0;
                         }
                         // If message recieved, echo to all other clients
-                        else if (packet.size)
+                        else if (ether_pkt.src[0])
                         {
                             //cout << "(" << clients[i].port << "): "
-                            //     << packet.dat << " size " << packet.size << endl;
-                            //cout << "packet.dst = " << packet.dst << "\n";
+                            //     << ether_pkt.dat << " size " << ether_pkt.size << endl;
+                            //cout << "ether_pkt.dst = " << ether_pkt.dst << "\n";
                             
+			    if (ether_pkt.type == TYPE_IP_PKT)
+			    	recv(i, &IP_pkt, sizeof(IP_PKT), 0);
+		            else if (ether_pkt.type == TYPE_ARP_PKT)
+			    	recv(i, &ARP_pkt, sizeof(ARP_PKT), 0);
+
                             bool found = 0;
 
                             for (int j = 0; j < bridge_table.size(); ++j)
                             {
-                                if (!strncmp(packet.src, bridge_table[j].macaddr, 18))
+                                if (!strncmp(ether_pkt.src, bridge_table[j].macaddr, 18))
                                 {
                                     found = 1;
                                     break;
@@ -214,28 +221,35 @@ int main (int argc, char *argv[])
                             if (!found)
                             {
                                 //bridge_table_entry new_entry;
-                                //strncpy(new_entry.macaddr, packet.src, 18);
+                                //strncpy(new_entry.macaddr, ether_pkt.src, 18);
                                 //new_entry.sockfd = i;
-                                bridge_table.push_back(bridge_table_entry(i, packet.src));
-                            cout << bridge_table[bridge_table.size() - 1].sockfd << " -> " 
-                                 << bridge_table[bridge_table.size() - 1].macaddr << endl;
+                                bridge_table.push_back(bridge_table_entry(i, ether_pkt.src));
+                                cout << bridge_table[bridge_table.size() - 1].sockfd << " -> " 
+                                     << bridge_table[bridge_table.size() - 1].macaddr << endl;
                             }
                             
-                            found = 0;
-
-                            cout << "Want to send to " << packet.dst << endl;
-
-                            for (int j = 0; j < bridge_table.size(); ++j)
+			    found = 0;
+			    if (ether_pkt.dst[0] != 'x')
                             {
-                                if (!strncmp(packet.dst, bridge_table[j].macaddr, 18))
+
+                                cout << "Want to send to " << ether_pkt.dst << endl;
+
+                                for (int j = 0; j < bridge_table.size(); ++j)
                                 {
-                                    // MAC found in table
-                                    cout << "Sending packet\n";
-                                    send(bridge_table[j].sockfd, &packet, sizeof(EtherPkt), 0);
-                                    found = 1;
-                                    break;
+                                    if (!strncmp(ether_pkt.dst, bridge_table[j].macaddr, 18))
+                                    {
+                                        // MAC found in table
+                                        cout << "Sending ether_pkt\n";
+                                        send(bridge_table[j].sockfd, &ether_pkt, sizeof(EtherPkt), 0);
+					if (ether_pkt.type == TYPE_IP_PKT)
+					    send(j, &IP_pkt, sizeof(IP_PKT), 0);
+					else if (ether_pkt.type == TYPE_ARP_PKT)
+					    send(j, &ARP_pkt, sizeof(ARP_PKT), 0);
+                                        found = 1;
+                                        break;
+                                    }
                                 }
-                            }
+			    }
                             if (!found)
                             {
                                 cout << "Broadcasting\n";
@@ -243,16 +257,20 @@ int main (int argc, char *argv[])
                                 {
                                     if(clients[j].port && j != i &&  j != servfd)
                                     {
-                                        send(j, &packet, sizeof(EtherPkt), 0);
-                                        //send(j, buffer, packet.size, 0);
-                                        //send(j, &packet, EtherPktSize, 0);
+                                        send(j, &ether_pkt, sizeof(EtherPkt), 0);
+					if (ether_pkt.type == TYPE_IP_PKT)
+					    send(j, &IP_pkt, sizeof(IP_PKT), 0);
+					else if (ether_pkt.type == TYPE_ARP_PKT)
+					    send(j, &ARP_pkt, sizeof(ARP_PKT), 0);
+                                        //send(j, buffer, ether_pkt.size, 0);
+                                        //send(j, &ether_pkt, EtherPktSize, 0);
                                     }
                                 }
                             }
                         }
 
                         // Clear the message buffer afterward
-                        memset(&packet, 0, sizeof(EtherPkt));
+                        memset(&ether_pkt, 0, sizeof(EtherPkt));
 
                     }
                 }

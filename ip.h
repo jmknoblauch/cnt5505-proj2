@@ -6,11 +6,6 @@
 #define ARP_REQUEST 0
 #define ARP_RESPONSE 1
 
-/* IP protocol types */
-#define PROT_TYPE_UDP 0
-#define PROT_TYPE_TCP 1
-#define PROT_TYPE_OSPF 2
-
 #define BUFSIZE 256
 
 typedef unsigned long IPAddr;
@@ -42,11 +37,12 @@ typedef struct rtable {
 
 
 /* Structure for an ARP cache entry */
-
+/*
 typedef struct arpcache {
     IPAddr ipaddr;
     MacAddr macaddr;
 } Arpc;
+*/
 
 /*--------------------------------------------------------------------*/
 
@@ -59,10 +55,12 @@ typedef struct arpcache {
 
 /*list of arp cache, to use this one to maintain current cache*/
 
+/*
 typedef struct arp_list {
   Arpc *arp_item;
   struct arp_list *next;
 } ARP_LIST;
+*/
 
 /*ARP packet format*/
 typedef struct arp_pkt 
@@ -78,22 +76,22 @@ typedef struct arp_pkt
 typedef struct ip_pkt
 {
   IPAddr  dstip;
+  IPAddr  nexthop;
   IPAddr  srcip;
-  short   protocol;
-  unsigned long    sequenceno;
+  //unsigned long    sequenceno;
+  //bool more;
   short   length;
-  char    data[BUFSIZE];
+  char    data[SHRT_MAX];
 } IP_PKT;
 
 /*queue for ip packet that has not yet sent out*/
-typedef struct p_queue
+typedef struct p_node
 {
-  IPAddr next_hop_ipaddr;
-  IPAddr dst_ipaddr;
-  char *pending_pkt;
-  struct p_queue *next;
-  
-} PENDING_QUEUE;
+  IPAddr nexthop;
+  IPAddr dst;
+  short pkt_size;
+  char pending_pkt[SHRT_MAX];
+} PENDING_NODE;
 
 /*queue to remember the packets we have received*/
 typedef struct packet_queue
@@ -101,7 +99,6 @@ typedef struct packet_queue
   char *packet;
   int  length;
   short counter;
-  struct packet_queue *next;
 } OLD_PACKETS;
 
 /*-------------------------------------------------------------------- */
@@ -136,9 +133,6 @@ int intr_cnt; /* counter for interface */
 
 Rtable rt_table[MAXHOSTS*MAXINTER];
 int rt_cnt;
-
-PENDING_QUEUE *pending_queue;
-ARP_LIST *arp_cache;
 
 int ROUTER;
 
