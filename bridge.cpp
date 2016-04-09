@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -35,6 +36,16 @@ struct client_t
    char name[DOMAIN_NAME_SIZE];
 };
 
+struct bridge_table_entry
+{
+    int sockfd;
+    MacAddr macaddr;
+    bridge_table_entry(int a, MacAddr m):sockfd(a)
+    {
+        strncpy(macaddr, m, 18);
+    }
+};
+
 static volatile int noInterupt = 1;
 
 void intHandler(int dummy) 
@@ -50,8 +61,14 @@ int main (int argc, char *argv[])
      * so that others (stations/routers) can connect to it
      */
     
+    if (argc != 3)
+    {
+        cout << "Usage: bridge <lan-nam> <num-ports>" << endl;
+        exit(0);
+    }
+
     ofstream port_file, addr_file;
-    int servfd, result, maxfd, num_ports = atoi(argv[2]) + 4;
+    int servfd, maxfd, num_ports = atoi(argv[2]) + 4;
     struct sockaddr_in serverAddr, newaddr;
     socklen_t length;
     fd_set readset;
@@ -61,13 +78,7 @@ int main (int argc, char *argv[])
     struct hostent *host;
     EtherPkt packet;
     char buffer[SHRT_MAX];
-    map<
-
-    if (argc != 3)
-    {
-        cout << "Usage: bridge <lan-nam> <num-ports>\n";
-        exit(0);
-    }
+    vector<bridge_table_entry> bridge_table;
 
     // This is used so that ctrl+C can be properly handled
     signal(SIGINT, intHandler);
@@ -161,8 +172,6 @@ int main (int argc, char *argv[])
                     send(newfd, "reject", 7, 0);
                     close(newfd);
                 }
-                    
-
             }
             // If activity from one of the clients, retrieve its message
             else
@@ -188,18 +197,56 @@ int main (int argc, char *argv[])
                         // If message recieved, echo to all other clients
                         else if (packet.size)
                         {
-                            cout << "(" << clients[i].port << "): "<<packet.dat << " size " << packet.size << endl;
-                            cout << "packet.dst = " << packet.dst << "\n";
+                            //cout << "(" << clients[i].port << "): "
+                            //     << packet.dat << " size " << packet.size << endl;
+                            //cout << "packet.dst = " << packet.dst << "\n";
                             
+                            bool found = 0;
 
-
-                            for(int j = 0; j < num_ports; ++j)
+                            for (int j = 0; j < bridge_table.size(); ++j)
                             {
-                                if(clients[j].port != 0 && j != i &&  j != servfd)
+                                if (!strncmp(packet.src, bridge_table[j].macaddr, 18))
                                 {
-                                    send(j, &packet, sizeof(EtherPkt), 0);
-                                    //send(j, buffer, packet.size, 0);
-                                    //send(j, &packet, EtherPktSize, 0);
+                                    found = 1;
+                                    break;
+                                }
+                            }
+                            if (!found)
+                            {
+                                //bridge_table_entry new_entry;
+                                //strncpy(new_entry.macaddr, packet.src, 18);
+                                //new_entry.sockfd = i;
+                                bridge_table.push_back(bridge_table_entry(i, packet.src));
+                            cout << bridge_table[bridge_table.size() - 1].sockfd << " -> " 
+                                 << bridge_table[bridge_table.size() - 1].macaddr << endl;
+                            }
+                            
+                            found = 0;
+
+                            cout << "Want to send to " << packet.dst << endl;
+
+                            for (int j = 0; j < bridge_table.size(); ++j)
+                            {
+                                if (!strncmp(packet.dst, bridge_table[j].macaddr, 18))
+                                {
+                                    // MAC found in table
+                                    cout << "Sending packet\n";
+                                    send(bridge_table[j].sockfd, &packet, sizeof(EtherPkt), 0);
+                                    found = 1;
+                                    break;
+                                }
+                            }
+                            if (!found)
+                            {
+                                cout << "Broadcasting\n";
+                                for(int j = 0; j < num_ports; ++j)
+                                {
+                                    if(clients[j].port && j != i &&  j != servfd)
+                                    {
+                                        send(j, &packet, sizeof(EtherPkt), 0);
+                                        //send(j, buffer, packet.size, 0);
+                                        //send(j, &packet, EtherPktSize, 0);
+                                    }
                                 }
                             }
                         }
@@ -219,4 +266,5 @@ int main (int argc, char *argv[])
     return 0;
 
 }
+
 /*----------------------------------------------------------------*/

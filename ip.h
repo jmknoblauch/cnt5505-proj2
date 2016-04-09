@@ -111,13 +111,15 @@ typedef struct packet_queue
 #define MAXINTER 32
 
 typedef struct host
-  {
+{
     char name[32];
     IPAddr addr;
-  }
+    MacAddr macaddr;
+}
 Host;
 
-typedef struct lan_rout {
+typedef struct lan_rout 
+{
   short router_attached;
   short counter;
 } LAN_ROUT;

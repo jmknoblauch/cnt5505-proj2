@@ -77,7 +77,7 @@ int main(int argc, char** argv)
         rtables.push_back(temp_r);
     }
 
-    while (host_file >> temp_h.name >> ip)
+    while (host_file >> temp_h.name >> ip >> temp_h.macaddr)
     {
         temp_h.addr = stoIP(ip);
         hosts.push_back(temp_h);
@@ -150,17 +150,31 @@ int main(int argc, char** argv)
                     //shutdown(sockfd, 2);
                     return 0;
                 }
-                if (packet.size)
+                if (!strncmp(packet.dst, ifaces[0].macaddr, 18))
                 {
                     cout << "Message of size " << packet.size << " received\n";
                     cout << ">>> " << packet.dat << endl;
                 }
-
             }
 
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
             {
+                char dest[32];
+                cin >> dest;
+
+                for (int i = 0; i < hosts.size(); i++)
+                {
+                    if (strncmp(dest, hosts[i].name, 32) == 0)
+                    {
+                        for (int j = 0; j < 18; j++)
+                        {
+                            packet.dst[j] = hosts[i].macaddr[j];
+                            packet.src[j] = ifaces[0].macaddr[j];
+                        }
+                    }
+                }
+                        
                 cin.getline(packet.dat, SHRT_MAX);
                 //packet.dat = buffer;
                 packet.size = strlen(packet.dat);
@@ -168,6 +182,7 @@ int main(int argc, char** argv)
                 //for (int i = 0; i < 6; i++)
                 //    packet.dst[i] = packet.src[i] = '0' + i;
                 cout << "Packet dat = " << packet.dat << endl;
+                cout << packet.src << " -> " << packet.dst << endl;
                 
                 send(sockfd, &packet, sizeof(EtherPkt), 0);
                 //send(sockfd, buffer, packet.size, 0);

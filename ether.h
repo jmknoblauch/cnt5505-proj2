@@ -7,7 +7,7 @@
 #define TYPE_IP_PKT 1
 #define TYPE_ARP_PKT 0
 
-typedef unsigned char MacAddr[18];
+typedef char MacAddr[18];
 
 /* structure of an ethernet pkt */
 typedef struct __etherpkt 
@@ -32,7 +32,5 @@ typedef struct __etherpkt
   char  dat[SHRT_MAX];
 
 } EtherPkt;
-
-const unsigned int EtherPktSize = sizeof(EtherPkt) + SHRT_MAX*sizeof(char);
 
 #endif
