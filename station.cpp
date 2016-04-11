@@ -139,7 +139,8 @@ int main(int argc, char** argv)
     memset(message, 0, MESSAGE_SIZE*sizeof(char));
     memset(&ether_pkt, 0, sizeof(EtherPkt));
 
-    while(true){
+    while(true)
+    {
         FD_ZERO(&readset);
 
         FD_SET(fileno(stdin), &readset);
@@ -148,6 +149,7 @@ int main(int argc, char** argv)
         // Block until activity on server socket or over stdin
         if(select(maxfd, &readset, NULL, NULL, NULL) > 0)
         {
+            cout << "Select got pinged\n";
             // Check for message from server
             if(FD_ISSET(sockfd, &readset))
             {
@@ -158,80 +160,89 @@ int main(int argc, char** argv)
                     //shutdown(sockfd, 2);
                     return 0;
                 }
-		if (ether_pkt.type == TYPE_IP_PKT)
-		{
+                cout <<"Packet from server " << ether_pkt.src << "->" << ether_pkt.dst << endl;;
+
+		        if (ether_pkt.type == TYPE_IP_PKT)
+		        {
+                    cout << "IP packet\n";// << IPtos(IP_pkt.dstip) << endl;
                     recv(sockfd, &IP_pkt, sizeof(IP_PKT), 0);
                     if (ifaces[0].ipaddr == IP_pkt.dstip)
                     {
                         cout << "Message of size " << IP_pkt.length << " received\n";
                         cout << ">>> " << IP_pkt.data << endl;
                     }
-		    else if (!strcmp(argv[1], "-route"))
-		    {
-		    	// Router stuff
-		    }
-		}
-		else if (ether_pkt.type == TYPE_ARP_PKT)
-		{
-		    recv(sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
-		    if (ARP_pkt.dstip == ifaces[0].ipaddr)
-		    {
-		        if (ARP_pkt.op == ARP_REQUEST)
-		        {
-			    if (ARP_pkt.dstip == ifaces[0].ipaddr)
-			    {
-			        MacAddr temp_mac;
+        		    else if (!strcmp(argv[1], "-route"))
+        		    {
+        		    	// Router stuff
+        		    }
+        		}
+		        else if (ether_pkt.type == TYPE_ARP_PKT)
+        		{
+                    cout << "ARP packet\n";// << IPtos(ARP_pkt.dstip) << "\n";
+                    recv(sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
+                    if (ARP_pkt.dstip == ifaces[0].ipaddr)
+                    {
+                        if (ARP_pkt.op == ARP_REQUEST)
+                        {
+                            cout << "Got ARP request\n";
+                            cout << IPtos(ARP_pkt.srcip) << "->" << IPtos(ARP_pkt.dstip) << endl;
+                            if (ARP_pkt.dstip == ifaces[0].ipaddr)
+                            {
+                                cout << "Sending response\n";
+                                MacAddr temp_mac;
 
-				ARP_pkt.op = ARP_RESPONSE;
+                                ARP_pkt.op = ARP_RESPONSE;
 
-				// Swap ARP destination and source IP's
-				IPAddr temp_ip = ARP_pkt.dstip;
-				ARP_pkt.dstip = ARP_pkt.srcip;
-				ARP_pkt.srcip = temp_ip;
+                                // Swap ARP destination and source IP's
+                                IPAddr temp_ip = ARP_pkt.dstip;
+                                ARP_pkt.dstip = ARP_pkt.srcip;
+                                ARP_pkt.srcip = temp_ip;
 
-				// Swap ARP destination and source macs
-				strncpy(ARP_pkt.dstmac, ARP_pkt.srcmac, 18);
-				strncpy(ARP_pkt.srcmac, ifaces[0].macaddr, 18);
-				  
-				// Swap ether destination and source macs
-				strncpy(temp_mac, ether_pkt.dst, 18);
-				strncpy(ether_pkt.dst, ether_pkt.src, 18);
-				strncpy(ether_pkt.src, temp_mac, 18);
+                                // Swap ARP destination and source macs
+                                strncpy(ARP_pkt.dstmac, ARP_pkt.srcmac, 18);
+                                strncpy(ARP_pkt.srcmac, ifaces[0].macaddr, 18);
+                                  
+                                // Swap ether destination and source macs
+                                strncpy(ether_pkt.dst, ether_pkt.src, 18);
+                                strncpy(ether_pkt.src, ifaces[0].macaddr, 18);
 
-				send(sockfd, &ether_pkt, sizeof(EtherPkt), 0);
-				send(sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
-			    }
-			}
-		        else // ARP_RESPONSE
-		        {
-			    if (ARP_pkt.dstip == ifaces[0].ipaddr)
-			    {
-			    	for (list<IP_PKT>::iterator it = pending_queue.begin();
-				     it != pending_queue.end(); ++it)
-				{
-				    if (ARP_pkt.srcip == it->nexthop)
-				    {
-					ether_pkt.type = TYPE_IP_PKT;
-				    	strncpy(ether_pkt.src, ifaces[0].macaddr, 18);
-					strncpy(ether_pkt.dst, ARP_pkt.srcmac, 18);
+                                send(sockfd, &ether_pkt, sizeof(EtherPkt), 0);
+                                send(sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
+                            }
+                        }
+                        else if (ARP_pkt.op == ARP_RESPONSE)// ARP_RESPONSE
+                        {
+                            cout << "Got ARP response, updating pending queue\n";
+                            if (ARP_pkt.dstip == ifaces[0].ipaddr)
+                            {
+                                for (list<IP_PKT>::iterator it = pending_queue.begin();
+                                    it != pending_queue.end(); ++it)
+                                {
+                                    if (ARP_pkt.srcip == it->nexthop)
+                                    {
+                                        ether_pkt.type = TYPE_IP_PKT;
+                                        strncpy(ether_pkt.src, ifaces[0].macaddr, 18);
+                                        strncpy(ether_pkt.dst, ARP_pkt.srcmac, 18);
 
-					// Might need to set each component individually
-					IP_pkt = *it;
+                                        // Might need to set each component individually
+                                        IP_pkt = *it;
 
-					pending_queue.erase(it);
-				    }
-				
-				}
-		                // Queue stuff
-			    }
-		        }
-		    }
-		    else if (!strcmp(argv[1], "-route"))
-		    {
-		    	// Router stuff
-		    }
+                                        pending_queue.erase(it);
+                                    }
+                                
+                                }
+                                // Queue stuff
+                            }
+                        }
+                    }
+                    else if (!strcmp(argv[1], "-route"))
+                    {
+                        // Router stuff
+                    }
+                    else cout << "Not for me.\n";
                 }
-	    }
+                else cout << "Something happened.\n";
+	        }
 
             // Check for input from stdin
             if(FD_ISSET(fileno(stdin), &readset))
@@ -246,7 +257,7 @@ int main(int argc, char** argv)
                         // Replace this once ARP cache is working.
                         //strncpy(ether_pkt.dst, hosts[i].macaddr, 18);
 
-			newnode.dstip = hosts[i].addr;
+			            newnode.dstip = hosts[i].addr;
                         // Find next hop IP address in routing table
                         for (int j = 0; j < rtable.size(); j++)
                         {
@@ -262,32 +273,33 @@ int main(int argc, char** argv)
                 // Check if next hop IP is already in ARP_Cache
                 map<IPAddr, MacAddr>::iterator it = ARP_Cache.find(newnode.nexthop);
 
-		// Copy over source MAC address
-		strncpy(ether_pkt.src, ifaces[0].macaddr, 18);
+		        // Copy over source MAC address
+        		strncpy(ether_pkt.src, ifaces[0].macaddr, 18);
 
                 if (it != ARP_Cache.end())
                 {
                     strncpy(ether_pkt.dst, it->second, 18);
                     ether_pkt.type = TYPE_IP_PKT;
 
-		    IP_pkt.dstip = newnode.dstip;
-		    IP_pkt.srcip = ifaces[0].ipaddr;
-		    cin.getline(IP_pkt.data, SHRT_MAX);
-		    IP_pkt.length = strlen(IP_pkt.data);
+		            IP_pkt.dstip = newnode.dstip;
+        		    IP_pkt.srcip = ifaces[0].ipaddr;
+        		    cin.getline(IP_pkt.data, SHRT_MAX);
+        		    IP_pkt.length = strlen(IP_pkt.data);
                 }
                 else 
                 {
-		    cin.getline(newnode.data, SHRT_MAX);
+		            cin.getline(newnode.data, SHRT_MAX);
                     newnode.length = strlen(newnode.data);
-		    newnode.srcip = ifaces[0].ipaddr;
-		    pending_queue.push_back(newnode);
+        		    newnode.srcip = ifaces[0].ipaddr;
+        		    pending_queue.push_back(newnode);
 
-		    ether_pkt.type = TYPE_ARP_PKT;
+        		    ether_pkt.type = TYPE_ARP_PKT;
+                    ether_pkt.dst[0] = 'x';
 
                     ARP_pkt.op = ARP_REQUEST;
-		    ARP_pkt.srcip = ifaces[0].ipaddr;
+		            ARP_pkt.srcip = ifaces[0].ipaddr;
                     strncpy(ARP_pkt.srcmac, ether_pkt.src, 18);
-		    ARP_pkt.dstip = newnode.dstip;
+        		    ARP_pkt.dstip = newnode.dstip;
                 }
 
 
@@ -299,14 +311,16 @@ int main(int argc, char** argv)
                 send(sockfd, &ether_pkt, sizeof(EtherPkt), 0);
 
                 // Send ARP or IP
-		if (ether_pkt.type == TYPE_IP_PKT)
-	            send(sockfd, &IP_pkt, sizeof(IP_PKT), 0);
-		else if (ether_pkt.type == TYPE_ARP_PKT)
+		        if (ether_pkt.type == TYPE_IP_PKT)
+	                send(sockfd, &IP_pkt, sizeof(IP_PKT), 0);
+        		else if (ether_pkt.type == TYPE_ARP_PKT)
                     send(sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
-		// Else case for closed connections
+		        // Else case for closed connections
             }
 
             memset(&ether_pkt, 0, sizeof(EtherPkt));
+            memset(&ARP_pkt, 0, sizeof(ARP_PKT));
+            memset(&IP_pkt, 0, sizeof(IP_PKT));
         }
     }
 
