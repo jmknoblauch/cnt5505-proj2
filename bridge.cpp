@@ -184,7 +184,6 @@ int main (int argc, char *argv[])
                     {
                         // Get ether_pkt and check for disconnection
                         if(recv(i, &ether_pkt, sizeof(EtherPkt), 0) == 0) 
-                        //if(recv(i, &ether_pkt, EtherPktSize, 0) == 0) 
                         {
                             close(i);
                             if(i == (maxfd - 1))
@@ -241,7 +240,7 @@ int main (int argc, char *argv[])
                                     if (!strncmp(ether_pkt.dst, bridge_table[j].macaddr, 18))
                                     {
                                         // MAC found in table
-                                        cout << "Sending ether_pkt to" << bridge_table[j].sockfd << endl;
+                                        cout << "Sending ether_pkt to " << bridge_table[j].sockfd << endl;
                                         send(bridge_table[j].sockfd, &ether_pkt, sizeof(EtherPkt), 0);
                                         if (ether_pkt.type == TYPE_IP_PKT)
                                         {
