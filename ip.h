@@ -18,6 +18,7 @@ struct Iface {
    IPAddr netmask;
    MacAddr macaddr;
    char lanname[32];
+   int sockfd;
 };
 
 /* mapping between interface name and socket id representing link */
@@ -37,12 +38,11 @@ typedef struct rtable {
 
 
 /* Structure for an ARP cache entry */
-/*
-typedef struct arpcache {
-    IPAddr ipaddr;
-    MacAddr macaddr;
-} Arpc;
-*/
+struct ARP_Cache_Entry {
+    IPAddr ip;
+    MacAddr mac;
+};
+
 
 /*--------------------------------------------------------------------*/
 
@@ -111,7 +111,6 @@ typedef struct host
 {
     char name[32];
     IPAddr addr;
-    MacAddr macaddr;
 }
 Host;
 
