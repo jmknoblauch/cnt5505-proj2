@@ -1,12 +1,13 @@
 /*----------------------------------------------------------------*/
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include <vector>
+#include <ctime>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <malloc.h>
@@ -24,9 +25,9 @@
 #include "ip.h"
 /*----------------------------------------------------------------*/
 
-#define SERVER_PORT 5100
 #define DOMAIN_NAME_SIZE 256
 #define MESSAGE_SIZE 200
+#define TIMEOUT 30
 
 using namespace std;
 
@@ -40,7 +41,8 @@ struct bridge_table_entry
 {
     int sockfd;
     MacAddr macaddr;
-    bridge_table_entry(int a, MacAddr m):sockfd(a)
+    time_t timer;
+    bridge_table_entry(int a, MacAddr m, time_t t):sockfd(a), timer(t)
     {
         strncpy(macaddr, m, 18);
     }
@@ -81,6 +83,7 @@ int main (int argc, char *argv[])
     ARP_PKT ARP_pkt;
     char buffer[SHRT_MAX];
     vector<bridge_table_entry> bridge_table;
+    string input;
 
     // This is used so that ctrl+C can be properly handled
     signal(SIGINT, intHandler);
@@ -124,12 +127,10 @@ int main (int argc, char *argv[])
     port_file.close();
     addr_file.close();
 
-    cout << "admin: started server on '" << host->h_name << "' at '" 
-         << clients[servfd].port << "'\n"
-         << "admin: IP address - " 
-         << inet_ntoa((*(struct in_addr *) host->h_addr)) << endl
-         << "(You can specify the port by using chatserver <port number>)\n";
-  
+    cout << "Bridge created on "
+         << inet_ntoa((*(struct in_addr *) host->h_addr)) 
+         << " : " << clients[servfd].port << endl;
+
     /* listen to the socket.
      * two cases:
      * 1. connection open/close request from stations/routers
@@ -143,6 +144,7 @@ int main (int argc, char *argv[])
 
         // Set the read status for the server and active client sockets
         FD_SET(servfd, &readset);
+        FD_SET(fileno(stdin), &readset);
         for(int i = 0; i < num_ports; i++)
             if (clients[i].port != 0)
                 FD_SET(i, &readset);
@@ -167,13 +169,35 @@ int main (int argc, char *argv[])
                     //strcpy(clients[newfd].name, host->h_name);
                     if (newfd >= maxfd)
                         maxfd = newfd + 1;
-                    cout << "admin: connect from '" << clients[newfd].port << "'\n";
+                    cout << "Accepting new station on sockfd " << newfd << endl;
                 }
                 else
                 {
                     send(newfd, "reject", 7, 0);
                     close(newfd);
                 }
+            }
+            if (FD_ISSET(fileno(stdin), &readset))
+            {
+                getline(cin, input);
+                if (!input.compare("show table"))
+                {
+                    if (bridge_table.size() == 0)
+                        cout << "Table is empty.\n";
+                    else 
+                    {
+                        cout << "Bridge self-learning table:\n"
+                             << "MAC address        Port  Socket  TTL\n";
+                        for (int i = 0; i < bridge_table.size(); i++)
+                        {
+                            cout << bridge_table[i].macaddr << "  " << left
+                                 << setw(6) << clients[bridge_table[i].sockfd].port
+                                 << setw(8) << bridge_table[i].sockfd 
+                                 << bridge_table[i].timer + TIMEOUT - time(NULL) << endl;
+                        }
+                    }
+                }
+
             }
             // If activity from one of the clients, retrieve its message
             else
@@ -198,14 +222,20 @@ int main (int argc, char *argv[])
                         // If message recieved, echo to all other clients
                         else if (ether_pkt.src[0])
                         {
-                            //cout << "(" << clients[i].port << "): "
-                            //     << ether_pkt.dat << " size " << ether_pkt.size << endl;
-                            //cout << "ether_pkt.dst = " << ether_pkt.dst << "\n";
+                            cout << "Received ethernet header" << endl;
                             
                             if (ether_pkt.type == TYPE_IP_PKT)
+                            {
                                 recv(i, &IP_pkt, sizeof(IP_PKT), 0);
+                                cout << "Received " << sizeof(IP_PKT)
+                                     << " byte IP frame\n";
+                            }
                             else if (ether_pkt.type == TYPE_ARP_PKT)
+                            {
                                 recv(i, &ARP_pkt, sizeof(ARP_PKT), 0);
+                                cout << "Received " << sizeof(ARP_PKT)
+                                     << " byte ARP frame\n";
+                            }
 
                             bool found = 0;
 
@@ -214,7 +244,11 @@ int main (int argc, char *argv[])
                             {
                                 if (!strncmp(ether_pkt.src, bridge_table[j].macaddr, 18))
                                 {
-                                    found = 1;
+                                    if (bridge_table[j].timer + TIMEOUT > time(NULL))
+                                    {
+                                        found = 1;
+                                        bridge_table[j].timer = time(NULL);
+                                    }
                                     break;
                                 }
                             }
@@ -223,7 +257,8 @@ int main (int argc, char *argv[])
                                 //bridge_table_entry new_entry;
                                 //strncpy(new_entry.macaddr, ether_pkt.src, 18);
                                 //new_entry.sockfd = i;
-                                bridge_table.push_back(bridge_table_entry(i, ether_pkt.src));
+                                bridge_table.push_back(
+                                    bridge_table_entry(i, ether_pkt.src, time(NULL)));
                                 cout << bridge_table[bridge_table.size() - 1].sockfd << " -> " 
                                      << bridge_table[bridge_table.size() - 1].macaddr << endl;
                             }
@@ -233,24 +268,23 @@ int main (int argc, char *argv[])
                             if (ether_pkt.dst[0] != 'x')
                             {
 
-                                cout << "Want to send to " << ether_pkt.dst << endl;
+                                //cout << "Want to send to " << ether_pkt.dst << endl;
 
                                 for (int j = 0; j < bridge_table.size(); ++j)
                                 {
                                     if (!strncmp(ether_pkt.dst, bridge_table[j].macaddr, 18))
                                     {
                                         // MAC found in table
-                                        cout << "Sending ether_pkt to " << bridge_table[j].sockfd << endl;
+                                        //cout << "Sending ether_pkt to " << bridge_table[j].sockfd << endl;
                                         send(bridge_table[j].sockfd, &ether_pkt, sizeof(EtherPkt), 0);
                                         if (ether_pkt.type == TYPE_IP_PKT)
                                         {
-                                            cout << "And ip_pkt\n";
+                                            //cout << "And ip_pkt\n";
                                             send(bridge_table[j].sockfd, &IP_pkt, sizeof(IP_PKT), 0);
                                         }
                                         else if (ether_pkt.type == TYPE_ARP_PKT)
                                         {
-                                            cout << "And arp_pkt\n";
-
+                                            //cout << "And arp_pkt\n";
                                             send(bridge_table[j].sockfd, &ARP_pkt, sizeof(ARP_PKT), 0);
                                         }
                                         found = 1;
@@ -260,7 +294,6 @@ int main (int argc, char *argv[])
                             }
                             if (!found)
                             {
-                                cout << "Broadcasting ether_pkt\n";
                                 for(int j = 0; j < num_ports; ++j)
                                 {
                                     if(clients[j].port && j != i &&  j != servfd)
@@ -268,12 +301,14 @@ int main (int argc, char *argv[])
                                         send(j, &ether_pkt, sizeof(EtherPkt), 0);
                                         if (ether_pkt.type == TYPE_IP_PKT)
                                         {
-                                            cout << "And ip_pkt\n";
+                                            cout << "Broadcasting " << sizeof(IP_PKT)
+                                                 << " byte ip_pkt\n";
                                             send(j, &IP_pkt, sizeof(IP_PKT), 0);
                                         }
                                         else if (ether_pkt.type == TYPE_ARP_PKT)
                                         {
-                                            cout << "And arp_pkt\n";
+                                            cout << "Broadcasting " << sizeof(ARP_PKT)
+                                                 << " byte arp_pkt\n";
                                             send(j, &ARP_pkt, sizeof(ARP_PKT), 0);
                                         }
                                     }
