@@ -164,11 +164,11 @@ int main(int argc, char** argv)
                         //shutdown(sockfd, 2);
                         return 0;
                     }
-                    cout << "Result = " << result << endl;
+                    //cout << "Result = " << result << endl;
                     
                     //cout <<"Packet from server " << ether_pkt.src << "->" << ether_pkt.dst << endl;
-                    
-                    if (ether_pkt.type == TYPE_IP_PKT)
+                    if (!strcmp(ether_pkt.src, ""));
+                    else if (ether_pkt.type == TYPE_IP_PKT)
                     {
                         cout << "IP packet\n";// << IPtos(IP_pkt.dstip) << endl;
                         recv(sockfd, &IP_pkt, sizeof(IP_PKT), 0);
