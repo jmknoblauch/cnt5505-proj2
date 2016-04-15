@@ -388,12 +388,15 @@ int main(int argc, char** argv)
                 {
                     cin >> userin;
 
-                    if (!userin.compare("pq"))
+                    if (!userin.compare("arp"))
                     {
-                        //for (int c = 0; c < ; ++c)
-                        //{
-
-                        //}
+                        cout << endl << "ARP cache:\n";
+                        for (int c = 0; c < ARP_cache.size(); ++c)
+                        {
+                            cout << left << setw(20) << IPtos(ARP_cache[c].ip)
+                                 << left << setw(20) << ARP_cache[c].mac << endl;
+                        }
+                        cout << endl;
                     }
                     else if (!userin.compare("host"))
                     {
